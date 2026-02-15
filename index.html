@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sarana Catur Tirta Kelola</title>
+
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Chart.js + Time Adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand brand-sctk">
+        <img class="brand-logo" src="./sctk-logo.png" alt="SCTK Logo" />
+        <div class="brand-text">
+          <div id="brandTitle" class="title">Sarana Catur Tirta Kelola</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <span id="connStatus" class="pill neutral">DISCONNECTED</span>
+      <span id="lastUpdated" class="muted">Last update: -</span>
+      <button id="btnLogout" class="btn ghost" style="display:none;" aria-label="Logout">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- LOGIN -->
+    <section id="loginSection" class="card" style="display:none">
+      <h2>Sign in (Google Token)</h2>
+      <p class="muted">
+        This dashboard uses a <b>JWT token</b> (Google sign-in).
+      </p>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="tbHost">ThingsBoard Host</label>
+          <input id="tbHost" type="text" value="https://thingsboard.cloud" aria-label="ThingsBoard Host" />
+          <div class="hint">Example: https://thingsboard.cloud</div>
+        </div>
+
+        <div class="field">
+          <label for="deviceId">Device ID (Kino)</label>
+          <input id="deviceId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" aria-label="Device ID" />
+          <div class="hint">ThingsBoard → Devices → (device) → ID</div>
+        </div>
+
+        <div class="field span2">
+          <label for="jwtToken">JWT Token</label>
+          <textarea
+            id="jwtToken"
+            rows="4"
+            placeholder="Paste JWT token here…"
+            aria-label="JWT Token"
+            spellcheck="false"
+          ></textarea>
+          <div class="hint">Authorization: Bearer ...</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnUseToken" class="btn primary" aria-label="Use Token Only">Use Token Only</button>
+        <button id="btnLogin" class="btn" aria-label="Login with Password">Login (Password)</button>
+        <span id="loginMsg" class="muted"></span>
+      </div>
+
+      <details class="tips">
+        <summary>Advanced (optional) — Password login</summary>
+        <div class="grid2" style="margin-top:10px;">
+          <div class="field">
+            <label for="tbUser">Username</label>
+            <input id="tbUser" type="text" placeholder="(optional)" aria-label="Username" />
+          </div>
+
+          <div class="field">
+            <label for="tbPass">Password</label>
+            <input id="tbPass" type="password" placeholder="(optional)" aria-label="Password" />
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- LANDING: DASHBOARD SELECTOR -->
+    <section id="selectorSection" style="display:none;">
+      <section class="card selector-head">
+        <div>
+          <h2>Choose Dashboard</h2>
+          <div class="muted">Click a site to open the detailed dashboard.</div>
+        </div>
+      </section>
+
+      <section class="dashboard-grid">
+        <button id="tileKino" class="dash-tile card" type="button" aria-label="Open Kino dashboard">
+          <div class="dash-tile__top">
+            <div>
+              <div class="dash-tile__title">KINO</div>
+              <div class="dash-tile__sub muted">Water pressure (latest)</div>
+            </div>
+            <span id="tileKinoStatus" class="pill neutral">-</span>
+          </div>
+
+          <div class="dash-tile__value">
+            <span id="tileKinoPressure">--</span>
+            <span class="dash-tile__unit">bar</span>
+          </div>
+
+          <div class="dash-tile__foot">
+            <span id="tileKinoDevice" class="pill neutral">device: -</span>
+            <span id="tileKinoUpdated" class="muted">updated: -</span>
+          </div>
+        </button>
+      </section>
+    </section>
+
+    <!-- DETAIL DASHBOARD -->
+    <section id="dashSection" style="display:none;">
+      <section class="toolbar card">
+        <div class="toolbar-left">
+          <button id="btnBackToSelector" class="btn ghost" type="button" aria-label="Back to dashboard list">Back</button>
+
+          <div class="toolbar-controls">
+            <div class="field toolbar-field">
+              <label for="rangeSelect">Range</label>
+              <select id="rangeSelect" aria-label="Range">
+                <option value="1h">1 hour</option>
+                <option value="6h">6 hours</option>
+                <option value="24h" selected>24 hours</option>
+                <option value="7d">7 days</option>
+              </select>
+            </div>
+
+            <div class="field toolbar-field">
+              <label for="refreshSelect">Refresh</label>
+              <select id="refreshSelect" aria-label="Refresh Latest">
+                <option value="5">5s</option>
+                <option value="10" selected>10s</option>
+                <option value="30">30s</option>
+                <option value="60">60s</option>
+              </select>
+            </div>
+
+            <div class="field toolbar-field">
+              <label for="aggSelect">Aggregation</label>
+              <select id="aggSelect" aria-label="Aggregation">
+                <option value="AVG" selected>AVG</option>
+                <option value="MIN">MIN</option>
+                <option value="MAX">MAX</option>
+                <option value="NON">NONE (RAW)</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btnRefreshNow" class="btn primary" aria-label="Refresh Now">Refresh Now</button>
+
+        <div class="export-controls">
+          <select id="exportScope" class="select" aria-label="Export scope">
+            <option value="range" selected>Export range</option>
+            <option value="all">Export all</option>
+          </select>
+
+          <select id="exportFormat" class="select" aria-label="Export format">
+            <option value="csv" selected>CSV</option>
+            <option value="xls">XLS</option>
+            <option value="xlsx">XLSX</option>
+          </select>
+
+          <button id="btnExport" class="btn" type="button" aria-label="Export data">Export</button>
+        </div>
+
+        </div>
+
+        <div class="toolbar-right">
+          <span class="muted">Device:</span>
+          <span id="deviceBadge" class="pill neutral">-</span>
+        </div>
+      </section>
+
+      <!-- KPI layout -->
+      <section class="cards kpi-layout">
+        <!-- Row 1 -->
+        <div class="kpi card critical kpi-system kpi-bool">
+          <div class="kpi-title">System</div>
+          <div id="kpiSystem" class="pill bigpill neutral">-</div>
+        </div>
+
+        <div class="kpi card critical kpi-charging kpi-bool">
+          <div class="kpi-title">Charging</div>
+          <div id="kpiCharging" class="pill bigpill neutral">-</div>
+        </div>
+
+        <div class="kpi card critical kpi-water">
+          <div class="kpi-title">Water Pressure</div>
+          <div class="kpi-value"><span id="kpiWishner">-</span> <span class="muted">bar</span></div>
+        </div>
+
+        <div class="kpi card critical kpi-velocity">
+          <div class="kpi-title">Velocity</div>
+          <div class="kpi-value"><span id="kpiVelocity">-</span> <span class="muted">m/s</span></div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="kpi card kpi-battery">
+          <div class="kpi-title">Percent Battery</div>
+          <div class="kpi-value"><span id="kpiBattSoc">-</span> <span class="muted">%</span></div>
+        </div>
+
+        <div class="kpi card kpi-battvolt">
+          <div class="kpi-title">Battery Volt</div>
+          <div class="kpi-value"><span id="kpiBattVolt">-</span> <span class="muted">V</span></div>
+        </div>
+
+        <div class="kpi card kpi-temp">
+          <div class="kpi-title">Temperature</div>
+          <div class="kpi-value"><span id="kpiTemp">-</span> <span class="muted">°C</span></div>
+        </div>
+
+        <div class="kpi card kpi-hum">
+          <div class="kpi-title">Humidity</div>
+          <div class="kpi-value"><span id="kpiHum">-</span> <span class="muted">%</span></div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="kpi card kpi-air">
+          <div class="kpi-title">Air Pressure</div>
+          <div class="kpi-value"><span id="kpiPress">-</span> <span class="muted">hPa</span></div>
+        </div>
+
+        <div class="kpi card kpi-bytescycle">
+          <div class="kpi-title">Byte/Cycle</div>
+          <div class="kpi-value"><span id="kpiBytesCycle">-</span> <span class="muted">bytes</span></div>
+        </div>
+
+        <div class="kpi card kpi-bytestotal">
+          <div class="kpi-title">Byte/Total</div>
+          <div class="kpi-value">
+            <span id="kpiBytesTotal">-</span>
+            <span id="kpiBytesTotalUnit" class="muted">bytes</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- GAUGE -->
+      <section class="card chart-card simple-gauge" style="margin-top:14px;">
+        <div class="chart-header">
+          <div>
+            <h3>Water Pressure Gauge</h3>
+            <div class="muted">0–5 bar</div>
+          </div>
+
+          <div class="gauge-live">
+            <span class="pill good">LIVE</span>
+            <span id="gaugeStamp" class="muted">-</span>
+          </div>
+        </div>
+
+        <div class="semi-gauge">
+          <div class="semi-gauge__svgWrap">
+            <svg id="gaugeSvg" class="gauge-svg" viewBox="0 0 200 120" aria-label="Water Pressure Gauge">
+              <path id="gaugeTrack" d="M 20 100 A 80 80 0 0 1 180 100" />
+              <path id="gaugeValue" d="M 20 100 A 80 80 0 0 1 180 100" />
+              <circle id="gaugeTipOuter" cx="20" cy="100" r="8" />
+              <circle id="gaugeTipInner" cx="20" cy="100" r="5" />
+            </svg>
+          </div>
+
+          <div id="gaugeTicks" class="gauge-ticks" aria-hidden="true"></div>
+
+          <div class="semi-gauge__center">
+            <div class="semi-gauge__bar">
+              <span id="wishnerBarText">0.00</span>
+              <span class="semi-gauge__unit">bar</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHARTS -->
+      <section class="charts-layout" style="margin-top:14px;">
+        <div class="chart-card card span-3">
+          <div class="chart-header">
+            <div>
+              <h3>Water Pressure</h3>
+              <div id="wishnerMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartWishner"></canvas>
+        </div>
+
+        <div class="chart-card card span-3">
+          <div class="chart-header">
+            <div>
+              <h3>Velocity</h3>
+              <div id="velocityMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartVelocity"></canvas>
+        </div>
+
+        <div class="chart-card card span-2">
+          <div class="chart-header">
+            <div>
+              <h3>Percent Battery</h3>
+              <div id="battSocMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartBattSoc"></canvas>
+        </div>
+
+        <div class="chart-card card span-2">
+          <div class="chart-header">
+            <div>
+              <h3>Battery Voltages</h3>
+              <div id="battVoltMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartBattVolt"></canvas>
+        </div>
+
+        <div class="chart-card card span-2">
+          <div class="chart-header">
+            <div>
+              <h3>Status Charging</h3>
+              <div id="chargingMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartCharging"></canvas>
+        </div>
+
+        <div class="chart-card card span-2">
+          <div class="chart-header">
+            <div>
+              <h3>Temperature</h3>
+              <div id="tempMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartTemp"></canvas>
+        </div>
+
+        <div class="chart-card card span-2">
+          <div class="chart-header">
+            <div>
+              <h3>Humidity</h3>
+              <div id="humMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartHum"></canvas>
+        </div>
+
+        <div class="chart-card card span-2">
+          <div class="chart-header">
+            <div>
+              <h3>Air Pressure</h3>
+              <div id="pressMeta" class="muted">-</div>
+            </div>
+          </div>
+          <canvas id="chartPress"></canvas>
+        </div>
+      </section>
+
+      <!-- LOG -->
+      <section class="card log">
+        <div class="log-header">
+          <h3>Log</h3>
+          <button id="btnClearLog" class="btn ghost" type="button" aria-label="Clear log">Clear</button>
+        </div>
+        <pre id="logBox" aria-label="Log output"></pre>
+      </section>
+    </section>
+  </main>
+
+    <!-- SheetJS for XLS/XLSX export (needs internet) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
